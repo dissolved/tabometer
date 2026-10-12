@@ -9,7 +9,7 @@ assert.equal(manifest.manifest_version, 3);
 assert.equal(manifest.background.type, "module");
 for (const path of [...manifest.background.scripts, manifest.options_ui.page]) await readFile(path);
 for (const directory of ["src", "scripts", "tests"]) {
-  for (const file of await readdir(directory)) {
+  for (const file of await readdir(directory, {recursive: true})) {
     if (!file.endsWith(".js")) continue;
     const result = spawnSync(process.execPath, ["--check", `${directory}/${file}`], {stdio: "inherit"});
     if (result.status !== 0) process.exit(result.status ?? 1);

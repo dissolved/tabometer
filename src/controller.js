@@ -4,6 +4,7 @@ import {load, record, save, settings} from "./store.js";
 export const ALARM = "tabometer.sample";
 
 export function createController(api, {now = Date.now, uuid = () => crypto.randomUUID()} = {}) {
+  const identities = new Map();
   // One writer for samples and settings. Failed jobs do not poison the queue.
   let queue = Promise.resolve();
   const enqueue = job => {
@@ -34,7 +35,7 @@ export function createController(api, {now = Date.now, uuid = () => crypto.rando
     const state = await load(api, uuid);
     // Restore alarms after a restart or event-page wake; don't reset a running alarm.
     if (state.settings.mode !== "events" && !await api.alarms.get(ALARM)) await configure(state);
-    const tabs = await observe(api, now(), uuid, activations, now);
+    const tabs = await observe(api, now(), uuid, activations, now, identities);
     const next = tabs ? record(state, tabs, now(), reason) : state;
     await save(api, next);
     return next;
@@ -47,7 +48,8 @@ export function createController(api, {now = Date.now, uuid = () => crypto.rando
     return state;
   }));
   const read = () => enqueue(() => guarded(() => load(api, uuid)));
-  return {sample, updateSettings, read};
+  const forget = tabId => enqueue(() => { identities.delete(tabId); });
+  return {sample, updateSettings, read, forget};
 }
 
 export function register(api, controller, now = Date.now) {
@@ -78,7 +80,10 @@ export function register(api, controller, now = Date.now) {
     void drain();
   }
   api.tabs.onCreated.addListener(() => request("created"));
-  api.tabs.onRemoved.addListener(() => request("removed"));
+  api.tabs.onRemoved.addListener(tabId => {
+    void controller.forget(tabId);
+    request("removed");
+  });
   // Activation is always collected, including polling mode, to preserve fallback
   // activity timestamps if Firefox omits lastAccessed.
   api.tabs.onActivated.addListener(info => request("activated", true, info.tabId));

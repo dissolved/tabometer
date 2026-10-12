@@ -51,11 +51,13 @@ test("unsupported/corrupt storage is preserved, failures sanitized, queue recove
 test("event wiring, selective page updates, coalescing and polling policy", async () => {
   const api = fakeBrowser();
   const calls = [];
+  const forgotten = [];
   let mode = "hybrid";
   const controller = {
     read: async () => ({settings: {mode}}),
     sample: async (...args) => { calls.push(args); },
-    updateSettings: async () => {}
+    updateSettings: async () => {},
+    forget: async id => { forgotten.push(id); }
   };
   const flush = async () => { for (let i = 0; i < 10; i++) await new Promise(resolve => setImmediate(resolve)); };
   register(api, controller, () => now);
@@ -83,6 +85,22 @@ test("event wiring, selective page updates, coalescing and polling policy", asyn
   for (let i = 0; i < 100; i++) void api.tabs.onRemoved.emit(i);
   await flush();
   assert.ok(calls.length > 0 && calls.length <= 2);
+  assert.deepEqual(forgotten, Array.from({length: 100}, (_, id) => id));
+});
+
+test("missing session values during window adoption retain identity; closed IDs are forgotten", async () => {
+  const api = fakeBrowser([normal([{id: 1, lastAccessed: now - 1000}])]);
+  const controller = createController(api, {now: () => now, uuid: api.uuid});
+  const first = await controller.sample();
+  api.sessionData.delete(1); // transient getTabValue gap during adoption
+  const moved = await controller.sample("attached");
+  assert.deepEqual(moved.tabs, first.tabs);
+  assert.equal(api.sessionData.get(1).uuid, first.tabs[0].uuid);
+  assert.doesNotMatch(JSON.stringify(api.data), /"id":1/);
+  await controller.forget(1);
+  api.sessionData.delete(1);
+  const newTab = await controller.sample();
+  assert.notEqual(newTab.tabs[0].uuid, first.tabs[0].uuid);
 });
 
 test("failed storage write keeps previous reading and a later collection recovers", async () => {

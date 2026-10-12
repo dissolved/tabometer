@@ -1,6 +1,6 @@
 # Manual Firefox test results
 
-Guided walkthrough on 2026-10-11. Results below were reported by the user in their temporarily installed Firefox extension; the agent did not directly control or observe Firefox. Firefox version was not recorded. No automated real-Firefox integration harness has been set up.
+Guided walkthrough on 2026-10-11. Results in the first section were reported by the user in their temporarily installed Firefox extension; Firefox version was not recorded. Subsequent automated runs use separate disposable profiles and are recorded separately below.
 
 ## Passed (user reported)
 
@@ -30,13 +30,11 @@ An up-to-date reading after opening settings does not independently prove an ala
 
 ## Remaining manual checks
 
-- Background event-page unloading and wake with the debugger closed, separately from OS sleep.
-- Browser shutdown/restart and previous-session restoration: identity, first-observed/activity metadata, device UUID, local observations, settings, and alarm recreation. Use a disposable profile and a restart-capable installation; temporary reload is not a restart test.
-- Discarded and hidden tabs, popup-window exclusion, and an explicit permission review. These were not individually exercised in the guided count test.
-- Pin/unpin effects on inactivity coverage, and browser-level handling of missing/anomalous activity timestamps. Exact seven/thirty-day thresholds already have pure unit tests.
-- Local midnight/day rollover, recorded timezone/offset, DST/timezone changes, and retention cleanup in Firefox. Pure calculations already have automated boundary coverage.
-- Unsupported-schema failure/recovery in a disposable profile, preserving original data for restoration. Automated tests already cover the storage interface behavior.
-- Extension network inspection for absence of outgoing requests. Local metadata was inspected, but a full network inspection was not reported.
+- The explicitly deferred OS sleep/wake check above, preferably on the everyday machine and usual profile. Browser background suspension is a different condition.
+- Visual installation/permission wording, usability, and accessibility review in Firefox's actual interface. Automation asserts manifest/runtime permissions and operates the options controls, but does not judge their presentation.
+- Optional real-world observation across midnight, travel/timezone changes, and Firefox upgrades. Deterministic unit tests cover DST/midnight/timezone boundaries without changing the host clock; the browser suite checks actual local date/offset and seeded retention.
+
+Browser restart is automated with `--restart`; default temporary-install runs skip it explicitly. No requirement to repeat the other automated lifecycle checks manually remains. A green suite is limited to its exercised paths and browser versions, not a general guarantee about Firefox session restoration.
 
 ## Test pitfalls found during the walkthrough
 
@@ -44,8 +42,37 @@ An up-to-date reading after opening settings does not independently prove an ala
 - Firefox rejected creating `about:mozilla` through `tabs.create()`; use a fully loaded ordinary test page such as `https://example.com/`.
 - Early multi-step identity comparisons mismatched. A subsequent self-contained probe with fresh metadata and an explicit session ID passed. No extension identity defect was established; stale variables or a different restored session remain possible explanations.
 
-## Automation candidates
+## Automated Firefox coverage
 
-Firefox-specific automation using Marionette or Selenium/geckodriver, with a disposable profile and extension installation, could cover tab/window operations, options controls, local state, restoration, and selected failure cases. `web-ext` can launch Firefox with the extension and validate the package, but is not by itself an assertion-based integration test suite. Restart tests need deliberate persistent-profile and installation setup. Background lifecycle tests must avoid accidentally holding the background page alive through an attached debugger.
+Run `uv run scripts/firefox-checks.py` or `npm run test:firefox`; see [setup and flags](../README.md#automated-firefox-checks). The runner uses Marionette, a disposable profile, local fixture pages, and the unchanged production manifest/source plus test-only fixtures. It needs no real accounts or browsing data. Python tooling is a development dependency only.
+
+Assertions cover:
+
+- Fresh install, device UUID, options status/sample/settings controls, and error-free collection.
+- Exactly the three intended permissions, no host/private access, tab/aggregate field allowlists, and empty sync storage.
+- Normal/private/popup window counts, pin/unpin coverage, hidden/discarded tabs, close/window removal, and repeated window transfers.
+- Exact-session close/restore with a changed browser ID and independent session marker; unique identities after duplication.
+- Reloading an inactive tab leaves its access time unchanged; selection advances it.
+- Events-only quiet periods and creation, polling exclusion of background creation, manual reconciliation, selection fallback, and a real one-minute hybrid alarm.
+- Natural background suspension and message wake, including device/tab identity preservation. The debugger is not attached; only the test profile's idle timeout is shortened.
+- Current local date/timezone/offset, latest-per-day replacement, pruning seeded old observations, unsupported-schema preservation, visible failure, and recovery.
+- Zero extension-originated HTTP(S) traffic during installation and lifecycle scenarios. A separate loopback ping self-tests request attribution and is excluded from the zero-count assertion. Firefox's unrelated service requests are excluded, and the observer does not span browser restart.
+- With `--restart`, an actual browser restart with persistent unsigned installation: restored UUID/first-observed time, retained known activity, installation UUID, settings/daily data, and recreated alarm. The runner prints before/after activity timestamps; Firefox resetting them forward remains a documented API limitation.
+
+Pure tests remain responsible for exact seven/thirty-day thresholds, anomalous/missing timestamps, mathematical timezone boundaries, storage-write failures, and shutdown's empty-enumeration behavior. The browser suite does not change the OS clock, sleep the computer, or infer samples during closed/suspended periods.
+
+### Regression found while automating
+
+On Firefox 157.0.1 and Developer Edition 158.0, a window move intermittently changed UUID and first-observed time. Test-only tracing showed `getTabValue()` returning no identity during adoption, while a separately saved session marker survived afterward. This is distinct from the earlier inconclusive manual snippets. The controller now caches metadata for each live tab ID in memory, bridges a missing-value read, and forgets closed IDs. A unit regression and ten round trips between windows exercise the fix. Background unload clears the cache; persistent restore still depends on Firefox's session data. No matching by URL or new persisted browser IDs was added.
+
+### Automated run log
+
+Verified on 2026-10-11 using headless macOS Firefox and owned disposable profiles. Initial failures during harness development were corrected; the move regression above prompted a production fix rather than weakening assertions.
+
+- Firefox 157.0.1: full post-fix default suite passed, including repeated transfers, network assertions, and a real one-minute alarm. Browser restart was explicitly skipped because this run used a temporary installation.
+- Firefox Developer Edition 158.0: full post-fix suite passed, including repeated transfers, network assertions, real one-minute alarm, and persistent-install restart.
+- A final Developer Edition run with `--restart --skip-alarm` also passed the explicit retained-activity assertion: the inactive fixture's access timestamp was unchanged across restart. This observation is not a promise for all restore scenarios or Firefox versions.
+
+The minimum supported extension version (112) was not browser-tested. These tests use Firefox internal APIs that may need adjustment on other releases. No manual sleep/wake or real Exist verification was performed.
 
 References: [Mozilla Marionette add-on API](https://firefox-source-docs.mozilla.org/python/marionette_driver.html), [web-ext development tools](https://extensionworkshop.com/documentation/develop/browser-extension-development-tools/), [persistent/restart testing](https://extensionworkshop.com/documentation/develop/testing-persistent-and-restart-features/).

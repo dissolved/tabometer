@@ -11,7 +11,7 @@ export function identity(value, now, uuid) {
   return {version: 1, uuid: uuid(), firstObservedAt: now, lastAccessedAt: null};
 }
 
-export async function observe(api, now, uuid, activations = new Map(), clock = () => now) {
+export async function observe(api, now, uuid, activations = new Map(), clock = () => now, identities = new Map()) {
   const windows = await api.windows.getAll({populate: true, windowTypes: ["normal"]});
   // Selected-tab lastAccessed can be generated during enumeration. Validate
   // against its completion time, not the instant before the asynchronous query.
@@ -26,7 +26,11 @@ export async function observe(api, now, uuid, activations = new Map(), clock = (
     for (const tab of window.tabs ?? []) {
       if (tab.incognito || !Number.isInteger(tab.id) || tab.id < 0 || seenIds.has(tab.id)) continue;
       seenIds.add(tab.id);
-      let metadata = identity(await api.sessions.getTabValue(tab.id, SESSION_KEY), now, uuid);
+      const saved = await api.sessions.getTabValue(tab.id, SESSION_KEY);
+      // During window adoption Firefox can briefly return no value before
+      // restoring the tab's session data. Bridge that gap using the same live
+      // tab ID, never a URL/title match. The controller forgets closed IDs.
+      let metadata = identity(saved ?? identities.get(tab.id), now, uuid);
       // Firefox duplication can copy session values. Concurrent tabs need distinct identities.
       if (seenUUIDs.has(metadata.uuid)) metadata = identity(null, now, uuid);
       seenUUIDs.add(metadata.uuid);
@@ -34,6 +38,7 @@ export async function observe(api, now, uuid, activations = new Map(), clock = (
         .filter(time => validTime(time, now));
       metadata.lastAccessedAt = candidates.length ? Math.max(...candidates) : null;
       await api.sessions.setTabValue(tab.id, SESSION_KEY, metadata);
+      identities.set(tab.id, metadata);
       // Explicit allowlist: never spread a browser Tab object into stored data.
       tabs.push({uuid: metadata.uuid, firstObservedAt: metadata.firstObservedAt,
         originalCreationUnknown: true, lastAccessedAt: metadata.lastAccessedAt,

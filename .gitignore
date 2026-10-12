@@ -5,6 +5,11 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Python integration-test environments and bytecode
+.venv/
+__pycache__/
+*.py[cod]
+
 # Generated extension packages and test reports
 web-ext-artifacts/
 *.xpi

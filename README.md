@@ -62,7 +62,7 @@ Data is ordinary JSON and can be copied from the debugger. A dedicated export/de
 
 ## Development and checks
 
-Use Node.js 22+; no `npm install` is necessary:
+Use Node.js 22+; no `npm install` is necessary. For asdf users, `.tool-versions` selects Node.js 24.21.0 LTS; run `asdf install` if it is not already installed:
 
 ```sh
 npm test

@@ -1,0 +1,27 @@
+# Local dependencies and package-manager logs
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Generated extension packages and test reports
+web-ext-artifacts/
+*.xpi
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Disposable Firefox profiles (may contain browsing data)
+.firefox-profile/
+.firefox-profiles/
+
+# Local environment settings; keep example configuration trackable
+.env
+.env.*
+!.env.example
+
+# Operating-system files
+.DS_Store
+Thumbs.db

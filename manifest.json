@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Tabometer",
+  "version": "0.1.0",
+  "description": "Local observations of tab counts and inactivity, without browsing content.",
+  "browser_specific_settings": {"gecko": {"id": "tabometer@tabometer.local", "strict_min_version": "112.0"}},
+  "permissions": ["storage", "sessions", "alarms"],
+  "incognito": "not_allowed",
+  "background": {"scripts": ["src/background.js"], "type": "module"},
+  "options_ui": {"page": "options.html", "open_in_tab": true},
+  "action": {"default_title": "Tabometer settings and observations"}
+}

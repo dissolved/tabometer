@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tabometer</title>
+<link rel="stylesheet" href="options.css">
+<script type="module" src="src/options.js"></script>
+<main>
+  <h1>Tabometer</h1>
+  <p>Local observations of tabs in normal windows. No browsing content is saved or uploaded.</p>
+  <form id="settings">
+    <label>Sampling <select id="mode">
+      <option value="hybrid">Events + periodic sampling (recommended)</option>
+      <option value="events">Events only</option>
+      <option value="polling">Periodic sampling</option>
+    </select></label>
+    <label>Sampling interval (minutes) <input id="intervalMinutes" type="number" min="1" max="1440" required></label>
+    <label>Retention (calendar days) <input id="retentionDays" type="number" min="1" max="365" required></label>
+    <button>Save settings</button>
+  </form>
+  <p>Events only leaves quiet days unmeasured. Periodic mode still observes tab selection to preserve activity metadata.</p>
+  <button id="sample" type="button">Sample now</button>
+  <button id="refresh" type="button">Refresh status</button>
+  <p id="message" role="status"></p>
+  <h2>Last observed counts</h2>
+  <pre id="latest">No sample yet.</pre>
+  <h2>Daily observations</h2>
+  <p>The latest sample for each local date. Today's reading is provisional. Missing days have no observation.</p>
+  <pre id="daily"></pre>
+  <h2>Collection status</h2>
+  <pre id="status"></pre>
+</main>
+</html>

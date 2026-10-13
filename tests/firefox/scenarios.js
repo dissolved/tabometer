@@ -45,10 +45,13 @@ export async function externalWindowCounts(expected) {
   assert((await checkCounts()).total === expected, "Private/popup window affected total");
 }
 
-export async function prepareWake() {
+export async function prepareWake(captureHistory = false) {
+  if (captureHistory) await browser.runtime.sendMessage({type: "history-settings", settings: {version: 1, enabled: true}});
   const current = await sample();
   const tab = await browser.tabs.getCurrent();
-  return {deviceId: current.deviceId, tabId: tab.id, metadata: await metadata(tab.id)};
+  const history = captureHistory ? await browser.runtime.sendMessage({type: "history"}) : null;
+  return {deviceId: current.deviceId, tabId: tab.id, metadata: await metadata(tab.id),
+    historySampleId: history?.recent[0].sampleId};
 }
 
 export async function wake(before) {
@@ -56,14 +59,30 @@ export async function wake(before) {
   assert(result.deviceId === before.deviceId, "Device identity lost on background wake");
   sameIdentity(before.metadata, await metadata(before.tabId), "Tab identity lost on background wake");
   assert((await browser.storage.local.get("tabometerStatus")).tabometerStatus.error === null, "Wake collection error");
+  if (before.historySampleId) {
+    const history = await browser.runtime.sendMessage({type: "history"});
+    assert(history.settings.enabled, "History preference lost on wake");
+    assert(history.recent.some(item => item.sampleId === before.historySampleId), "History lost on background wake");
+    await browser.runtime.sendMessage({type: "history-clear"});
+    // Test setup only: restore an uninitialized history database/preferences so
+    // later scenarios can exercise the first-enable legacy import independently.
+    await new Promise((resolve, reject) => {
+      const request = indexedDB.deleteDatabase("tabometer-history");
+      request.onsuccess = resolve;
+      request.onerror = reject;
+    });
+    await browser.storage.local.remove(["tabometerHistorySettings", "tabometerHistoryStatus"]);
+  }
 }
 
 export async function restartSnapshot() {
   await configure("hybrid", 15);
+  await browser.runtime.sendMessage({type: "history-settings", settings: {version: 1, enabled: true}});
   const tab = await createTab();
   await sample();
   return {deviceId: (await state()).deviceId, metadata: await metadata(tab.id),
-    settings: (await state()).settings, dates: Object.keys((await state()).daily)};
+    settings: (await state()).settings, dates: Object.keys((await state()).daily),
+    historySampleId: (await browser.runtime.sendMessage({type: "history"})).recent[0].sampleId};
 }
 
 export async function verifyRestart(before) {
@@ -78,6 +97,9 @@ export async function verifyRestart(before) {
     assert(matching[0].lastAccessedAt >= before.metadata.lastAccessedAt, "Known activity lost on restart");
   }
   assert(await browser.alarms.get("tabometer.sample"), "Sampling alarm missing after restart");
+  const history = await browser.runtime.sendMessage({type: "history"});
+  assert(history.settings.enabled, "History setting lost on restart");
+  assert(history.recent.some(item => item.sampleId === before.historySampleId), "History lost on browser restart");
   return {activityBefore: before.metadata.lastAccessedAt, activityAfter: matching[0].lastAccessedAt};
 }
 
@@ -108,7 +130,7 @@ export const cases = {
     assert(permissions.origins.length === 0, "Unexpected host permissions");
     assert(!await browser.extension.isAllowedIncognitoAccess(), "Private access enabled");
     const current = await sample();
-    const tabKeys = ["uuid", "firstObservedAt", "originalCreationUnknown", "lastAccessedAt", "pinned", "discarded"];
+    const tabKeys = ["uuid", "firstObservedAt", "originalCreationUnknown", "lastAccessedAt", "pinned", "discarded", "selected"];
     assert(current.tabs.every(tab => Object.keys(tab).every(key => tabKeys.includes(key))), "Unexpected stored tab fields");
     assert(current.tabs.every(tab => tab.originalCreationUnknown === true), "Creation time inferred");
     const aggregateKeys = ["timestamp", "date", "timezone", "utcOffsetMinutes", "reason", "total", "pinned",
@@ -264,6 +286,83 @@ export const cases = {
     await sample();
     assert((await browser.storage.local.get("tabometerStatus")).tabometerStatus.error === null, "Recovery did not clear status");
     await configure("hybrid");
+  },
+
+  async "snapshot history opt-in, import, persistence, pause and deletion UI"() {
+    const before = await sample();
+    assert((await browser.runtime.sendMessage({type: "history"})).count === 0, "History captured before opt-in");
+    document.getElementById("history-enabled").checked = true;
+    document.getElementById("history-settings").requestSubmit();
+    await eventually(async () => (await browser.storage.local.get("tabometerHistorySettings")).tabometerHistorySettings?.enabled,
+      "history opt-in saved");
+    await sample();
+    const target = await createTab();
+    await sample();
+    const history = await browser.runtime.sendMessage({type: "history"});
+    assert(history.count >= Object.keys(before.daily).length + 2, "Snapshots replaced within same day");
+    assert(history.recent.filter(item => item.kind === "legacy-daily").length === Object.keys(before.daily).length,
+      "Legacy readings missing or imported twice");
+    assert(history.recent.filter(item => item.kind === "legacy-daily").every(item => item.tabs === null), "Invented tab history");
+    assert(history.recent.filter(item => item.kind === "snapshot").some(item =>
+      item.tabs.some(tab => tab.uuid === before.tabs[0].uuid)), "Snapshot identity changed");
+    const {createHistoryStore} = await import("../src/history.js");
+    assert((await createHistoryStore().inspect()).count === history.count, "Reopened database lost history");
+    await browser.runtime.sendMessage({type: "history-settings", settings: {version: 1, enabled: false}});
+    const paused = await browser.runtime.sendMessage({type: "history"});
+    await sample();
+    assert((await browser.runtime.sendMessage({type: "history"})).count === paused.count, "Paused capture appended history");
+    document.getElementById("history-refresh").click();
+    await eventually(() => document.getElementById("history-recent").textContent.includes('"snapshot"'), "history inspector");
+    const daily = await state();
+    document.getElementById("history-confirm-delete").checked = true;
+    document.getElementById("history-confirm-delete").dispatchEvent(new Event("change"));
+    document.getElementById("history-delete").click();
+    await eventually(async () => (await browser.runtime.sendMessage({type: "history"})).count === 0, "history deletion");
+    assert((await state()).deviceId === daily.deviceId, "Deletion reset installation identity");
+    assert(JSON.stringify((await state()).daily) === JSON.stringify(daily.daily), "Deletion changed daily counts");
+    await browser.runtime.sendMessage({type: "history-settings", settings: {version: 1, enabled: true}});
+    await sample();
+    const resumed = await browser.runtime.sendMessage({type: "history"});
+    assert(resumed.recent.every(item => item.kind === "snapshot"), "Deleted legacy readings were reimported");
+    await browser.runtime.sendMessage({type: "history-clear"});
+    await browser.tabs.remove(target.id);
+  },
+
+  async "IndexedDB import/append atomicity, idempotence and cap failures"() {
+    const {createHistoryStore, snapshot} = await import("../src/history.js");
+    const source = await sample();
+    const name = "integration-history-" + crypto.randomUUID();
+    const store = createHistoryStore(indexedDB, name);
+    const record = snapshot(source, "first");
+    try {
+      // Force a unique-index violation *after* enqueueing the legacy import.
+      const colliding = {...record, sampleId: "legacy:" + Object.keys(source.daily)[0]};
+      let rejected = false;
+      try { await store.append(source, colliding); } catch { rejected = true; }
+      assert(rejected, "Constraint failure committed");
+      assert((await store.inspect()).count === 0, "Aborted import left records");
+      await store.append(source, record);
+      const first = await store.inspect();
+      await store.append(source, record);
+      assert((await store.inspect()).count === first.count, "Retry duplicated snapshot/import");
+      const capped = createHistoryStore(indexedDB, name, first.count);
+      rejected = false;
+      try { await capped.append(source, snapshot(source, "over-cap")); } catch { rejected = true; }
+      assert(rejected, "Record cap ignored");
+      assert((await store.inspect()).count === first.count, "Cap failure corrupted history");
+      for (let index = 0; index < 25; index++) await store.append(source, snapshot(source, "extra-" + index));
+      const bounded = await store.inspect();
+      assert(bounded.recent.length === 20 && bounded.recent[0].sampleId === "extra-24", "Unbounded or unordered history read");
+      await store.clear(source.deviceId);
+      await store.append(source, snapshot(source, "after-clear"));
+      assert((await store.inspect()).count === 1, "Deletion reimported legacy history");
+    } finally {
+      await new Promise((resolve, reject) => {
+        const request = indexedDB.deleteDatabase(name);
+        request.onsuccess = resolve;
+        request.onerror = reject;
+      });
+    }
   },
 
   async "real one-minute alarm without synthetic clock"() {

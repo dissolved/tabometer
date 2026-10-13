@@ -141,12 +141,12 @@ def hidden_tab_check(driver):
         extension_script(driver, "await browser.tabs.remove(arguments[0]);", [tab])
 
 
-def background_wake_check(driver):
+def background_wake_check(driver, capture_history=False):
     # Observe natural suspension, not a debugger-forced termination. Reading
     # backgroundState from the parent does not run code in the event page.
     driver.set_pref("extensions.background.idle.timeout", 100)
     try:
-        device_id = extension_script(driver, "return await (await import('./integration/scenarios.js')).prepareWake();")
+        device_id = extension_script(driver, "return await (await import('./integration/scenarios.js')).prepareWake(arguments[0]);", [capture_history])
         wait_for(lambda: chrome(driver, "return WebExtensionPolicy.getByID(arguments[0]).extension.backgroundState === 'stopped';", [ADDON_ID]), "natural event-page suspension", timeout=15)
         driver.set_pref("extensions.background.idle.timeout", 300000)
         extension_script(driver, "await (await import('./integration/scenarios.js')).wake(arguments[0]);", [device_id])
@@ -199,8 +199,8 @@ def main():
             Addons(driver).install(str(extension), temp=not args.restart)
             base = chrome(driver, "return WebExtensionPolicy.getByID(arguments[0]).getURL('');", [ADDON_ID])
             driver.navigate(base + "options.html")
-            background_wake_check(driver)
-            print("PASS natural background suspension and message wake", flush=True)
+            background_wake_check(driver, capture_history=True)
+            print("PASS natural background suspension and message wake, including snapshot history", flush=True)
             # Include installation/wake traffic in the assertion before the
             # self-test resets the counter.
             assert chrome(driver, "return window.wrappedJSObject.__tabometerNetwork.count;") == 0

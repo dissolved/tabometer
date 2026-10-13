@@ -42,7 +42,7 @@ export async function observe(api, now, uuid, activations = new Map(), clock = (
       // Explicit allowlist: never spread a browser Tab object into stored data.
       tabs.push({uuid: metadata.uuid, firstObservedAt: metadata.firstObservedAt,
         originalCreationUnknown: true, lastAccessedAt: metadata.lastAccessedAt,
-        pinned: Boolean(tab.pinned), discarded: Boolean(tab.discarded)});
+        pinned: Boolean(tab.pinned), discarded: Boolean(tab.discarded), selected: Boolean(tab.active)});
     }
   }
   return tabs.length ? tabs : null;

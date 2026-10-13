@@ -1,9 +1,10 @@
 import {observe} from "./observer.js";
 import {load, record, save, settings} from "./store.js";
+import {createHistoryStore, historySettings, snapshot, HISTORY_SETTINGS_KEY, HISTORY_STATUS_KEY} from "./history.js";
 
 export const ALARM = "tabometer.sample";
 
-export function createController(api, {now = Date.now, uuid = () => crypto.randomUUID()} = {}) {
+export function createController(api, {now = Date.now, uuid = () => crypto.randomUUID(), history = createHistoryStore()} = {}) {
   const identities = new Map();
   // One writer for samples and settings. Failed jobs do not poison the queue.
   let queue = Promise.resolve();
@@ -31,6 +32,7 @@ export function createController(api, {now = Date.now, uuid = () => crypto.rando
       await api.alarms.create(ALARM, {periodInMinutes: state.settings.intervalMinutes});
     }
   }
+  const readHistorySettings = async () => historySettings((await api.storage.local.get(HISTORY_SETTINGS_KEY))[HISTORY_SETTINGS_KEY]);
   const sample = (reason = "manual", activations = new Map()) => enqueue(() => guarded(async () => {
     const state = await load(api, uuid);
     // Restore alarms after a restart or event-page wake; don't reset a running alarm.
@@ -38,6 +40,20 @@ export function createController(api, {now = Date.now, uuid = () => crypto.rando
     const tabs = await observe(api, now(), uuid, activations, now, identities);
     const next = tabs ? record(state, tabs, now(), reason) : state;
     await save(api, next);
+    if (tabs && (await readHistorySettings()).enabled) {
+      const previous = (await api.storage.local.get(HISTORY_STATUS_KEY))[HISTORY_STATUS_KEY] ?? {};
+      try {
+        // Daily collection remains independently useful if history storage fails.
+        // Import the pre-sample daily readings, then append the new snapshot.
+        await history.append(state, snapshot(next, uuid()));
+      } catch {
+        await api.storage.local.set({[HISTORY_STATUS_KEY]: {...previous,
+          error: "Snapshot history was not saved. Storage may be unavailable or the record limit reached. Daily collection continues.",
+          lastFailureAt: now(), missedSamples: (previous.missedSamples ?? 0) + 1}});
+        throw new Error("History capture failed");
+      }
+      await api.storage.local.set({[HISTORY_STATUS_KEY]: {...previous, error: null, lastRecordedAt: next.lastSample.timestamp}});
+    }
     return next;
   }));
   const updateSettings = value => enqueue(() => guarded(async () => {
@@ -49,7 +65,22 @@ export function createController(api, {now = Date.now, uuid = () => crypto.rando
   }));
   const read = () => enqueue(() => guarded(() => load(api, uuid)));
   const forget = tabId => enqueue(() => { identities.delete(tabId); });
-  return {sample, updateSettings, read, forget};
+  const inspectHistory = () => enqueue(() => guarded(async () => ({settings: await readHistorySettings(),
+    status: (await api.storage.local.get(HISTORY_STATUS_KEY))[HISTORY_STATUS_KEY] ?? {error: null},
+    ...await history.inspect()})));
+  const updateHistory = value => enqueue(() => guarded(async () => {
+    const next = historySettings(value);
+    await api.storage.local.set({[HISTORY_SETTINGS_KEY]: next});
+    return next;
+  }));
+  const clearHistory = () => enqueue(() => guarded(async () => {
+    // Pause before deletion; queued later samples cannot recreate the history.
+    await api.storage.local.set({[HISTORY_SETTINGS_KEY]: {version: 1, enabled: false}});
+    const state = await load(api, uuid);
+    await history.clear(state.deviceId);
+    await api.storage.local.set({[HISTORY_STATUS_KEY]: {error: null}});
+  }));
+  return {sample, updateSettings, read, forget, inspectHistory, updateHistory, clearHistory};
 }
 
 export function register(api, controller, now = Date.now) {
@@ -106,6 +137,9 @@ export function register(api, controller, now = Date.now) {
   api.runtime.onMessage.addListener(message => {
     if (message?.type === "sample") return controller.sample();
     if (message?.type === "settings") return controller.updateSettings(message.settings);
+    if (message?.type === "history") return controller.inspectHistory();
+    if (message?.type === "history-settings") return controller.updateHistory(message.settings);
+    if (message?.type === "history-clear") return controller.clearHistory();
     return undefined;
   });
   // Also reconcile extension reloads and event-page wakes. No catch-up samples.

@@ -2,6 +2,8 @@
 
 Status: proposed plan, 2026-10-12. This document does not enable collection or change runtime permissions.
 
+Implementation progress: the first snapshot-history slice is implemented as an opt-in preview. It retains aggregate/per-tab snapshots, transactionally imports old daily readings without fabricated tab history, and provides bounded inspection and confirmed deletion. The existing daily storage schema remains the authoritative source for existing metrics; history is an independent IndexedDB store, so its failure does not prevent daily collection. A visible missed-snapshot counter records history failures. For this preview, the 100,000-record cap applies without automatic pruning; the proposed seven-day detail/90-day summary retention must wait for transactional condensation. Full event capture, foreground/idle measurement, cross-day activity summaries, and export remain subsequent slices. See README for exact shipped behavior and limitations.
+
 ## Outcome and boundaries
 
 Preserve enough local evidence to examine attention patterns, tab persistence and returns, long return delays, switching patterns, and daily routines. These are observations of browser state, not measurements of attention, intent, avoidance, productivity, or stress.

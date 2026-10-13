@@ -27,6 +27,19 @@
   <h2>Daily observations</h2>
   <p>The latest sample for each local date. Today's reading is provisional. Missing days have no observation.</p>
   <pre id="daily"></pre>
+  <h2>Snapshot history (preview)</h2>
+  <p>Optionally keep each collected snapshot, including tab UUIDs, timestamps and selection state.
+    Selection means selected in its window, including unfocused windows. Snapshots cannot show every selection between readings.
+    Data stays on this device. This preview keeps up to 100,000 records; automatic condensation and age-based retention are not implemented yet.</p>
+  <form id="history-settings">
+    <label><input id="history-enabled" type="checkbox"> Keep snapshot history</label>
+    <button>Save history setting</button>
+  </form>
+  <button id="history-refresh" type="button">Inspect recent snapshots</button>
+  <p id="history-status" role="status">History has not been inspected.</p>
+  <pre id="history-recent"></pre>
+  <label><input id="history-confirm-delete" type="checkbox"> Confirm deletion of snapshot history; pause capture and keep existing daily readings and tab identities</label>
+  <button id="history-delete" type="button" disabled>Delete snapshot history</button>
   <h2>Collection status</h2>
   <pre id="status"></pre>
 </main>

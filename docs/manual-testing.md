@@ -75,4 +75,17 @@ Verified on 2026-10-11 using headless macOS Firefox and owned disposable profile
 
 The minimum supported extension version (112) was not browser-tested. These tests use Firefox internal APIs that may need adjustment on other releases. No manual sleep/wake or real Exist verification was performed.
 
+### Snapshot-history slice: 2026-10-12
+
+Verified using Node 24.21.0 and headless macOS Firefox 157.0.1 in disposable profiles:
+
+- All 16 unit tests and manifest/entrypoint/JavaScript syntax checks passed.
+- A full default Firefox run passed the existing lifecycle/privacy/UI checks, real one-minute alarm, and zero extension HTTP(S) traffic assertion. Added history checks passed: explicit opt-in, same-day snapshots, once-only legacy daily import, reopening IndexedDB, pause, inspector and confirmed deletion, preserved identities/daily readings, and no reimport after deletion.
+- Real IndexedDB tests forced a unique-index failure after enqueueing import writes: the transaction left no partial records or marker. Subsequent import succeeded; repeating its sample ID had no duplicate effect. Cap failures preserved records, recent reads were bounded/ordered, and deletion prevented legacy reimport.
+- The final follow-up run used `--skip-alarm` and passed all remaining checks, including history surviving natural event-page suspension and message wake. The alarm had already passed in the full run; it was explicitly skipped in this follow-up. Test setup resets only the history database/preferences afterward so the first-enable import scenario starts independently.
+
+During harness development, a settings poll initially dereferenced a not-yet-written preference; the poll now tolerates that expected asynchronous state. A second suspension check after switching from a long idle timeout timed out. The check now runs with the short timeout established at installation: Firefox's idle manager can retain an already scheduled timer when its preference changes. The final run observed actual suspension from the parent process; it did not force background termination or attach a debugger.
+
+Browser restart with the new history store was **not run**: Developer Edition/Nightly was unavailable. The optional `--restart` scenario now includes history preference/record preservation, ready for a compatible installation. OS sleep/wake, manual idle/lock behavior, visual/accessibility review, minimum Firefox 112, large-history performance, and disk-quota exhaustion remain unverified. Cap and transaction-abort tests do not establish physical disk-quota or power-loss behavior. No Exist requests were made. Idle detection is not implemented in this slice.
+
 References: [Mozilla Marionette add-on API](https://firefox-source-docs.mozilla.org/python/marionette_driver.html), [web-ext development tools](https://extensionworkshop.com/documentation/develop/browser-extension-development-tools/), [persistent/restart testing](https://extensionworkshop.com/documentation/develop/testing-persistent-and-restart-features/).

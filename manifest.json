@@ -6,7 +6,21 @@
   "browser_specific_settings": {"gecko": {"id": "tabometer@tabometer.local", "strict_min_version": "112.0"}},
   "permissions": ["storage", "sessions", "alarms"],
   "incognito": "not_allowed",
+  "icons": {
+    "16": "assets/icons/tabometer-16.png",
+    "32": "assets/icons/tabometer-32.png",
+    "48": "assets/icons/tabometer-48.png",
+    "64": "assets/icons/tabometer-64.png",
+    "96": "assets/icons/tabometer-96.png",
+    "128": "assets/icons/tabometer-128.png"
+  },
   "background": {"scripts": ["src/background.js"], "type": "module"},
   "options_ui": {"page": "options.html", "open_in_tab": true},
-  "action": {"default_title": "Tabometer settings and observations"}
+  "action": {
+    "default_title": "Tabometer settings and observations",
+    "default_icon": {
+      "16": "assets/icons/tabometer-16.png",
+      "32": "assets/icons/tabometer-32.png"
+    }
+  }
 }

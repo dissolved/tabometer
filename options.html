@@ -1,58 +1,106 @@
 <!doctype html>
 <html lang="en">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tabometer</title>
-<link rel="stylesheet" href="options.css">
-<script type="module" src="src/options.js"></script>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tabometer</title>
+  <link rel="icon" href="assets/icons/tabometer-32.png">
+  <link rel="stylesheet" href="options.css">
+  <script type="module" src="src/options.js"></script>
+</head>
+<body>
 <main>
-  <h1>Tabometer</h1>
-  <p>Local observations of tabs in normal windows. No browsing content is saved or uploaded.</p>
-  <form id="settings">
-    <label>Sampling <select id="mode">
-      <option value="hybrid">Events + periodic sampling (recommended)</option>
-      <option value="events">Events only</option>
-      <option value="polling">Periodic sampling</option>
-    </select></label>
-    <label>Sampling interval (minutes) <input id="intervalMinutes" type="number" min="1" max="1440" required></label>
-    <label>Retention (calendar days) <input id="retentionDays" type="number" min="1" max="365" required></label>
-    <button>Save settings</button>
-  </form>
-  <p>Events only leaves quiet days unmeasured. Periodic mode still observes tab selection to preserve activity metadata.</p>
-  <button id="sample" type="button">Sample now</button>
-  <button id="refresh" type="button">Refresh status</button>
-  <p id="message" role="status"></p>
-  <h2>Last observed counts</h2>
-  <pre id="latest">No sample yet.</pre>
-  <h2>Daily observations</h2>
-  <p>The latest sample for each local date. Today's reading is provisional. Missing days have no observation.</p>
-  <pre id="daily"></pre>
-  <h2>Storage</h2>
-  <dl>
-    <dt>Snapshot storage (estimated)</dt>
-    <dd id="storage-usage">Checking…</dd>
-    <dt>Snapshot storage quota (estimated)</dt>
-    <dd id="storage-quota">Checking…</dd>
-    <dt>Daily data and settings (logical size)</dt>
-    <dd id="storage-local">Checking…</dd>
-  </dl>
-  <p>Firefox estimates snapshot usage and its storage limit; space is not reserved or guaranteed.
-    Daily data and settings are measured separately. These figures are not an exact total disk size and may lag recent writes.
-    Updates when this page opens or status is refreshed. Unavailable means Firefox could not report that figure.</p>
-  <h2>Snapshot history (preview)</h2>
-  <p>Optionally keep each collected snapshot, including tab UUIDs, timestamps and selection state.
-    Selection means selected in its window, including unfocused windows. Snapshots cannot show every selection between readings.
-    Data stays on this device. This preview keeps up to 100,000 records; automatic condensation and age-based retention are not implemented yet.</p>
-  <form id="history-settings">
-    <label><input id="history-enabled" type="checkbox"> Keep snapshot history</label>
-    <button>Save history setting</button>
-  </form>
-  <button id="history-refresh" type="button">Inspect recent snapshots</button>
-  <p id="history-status" role="status">History has not been inspected.</p>
-  <pre id="history-recent"></pre>
-  <label><input id="history-confirm-delete" type="checkbox"> Confirm deletion of snapshot history; pause capture and keep existing daily readings and tab identities</label>
-  <button id="history-delete" type="button" disabled>Delete snapshot history</button>
-  <h2>Collection status</h2>
-  <pre id="status"></pre>
+  <header class="page-header">
+    <div class="brand">
+      <img src="assets/icons/tabometer-128.png" width="64" height="64" alt="">
+      <div><h1>Tabometer</h1><p>A little perspective on your tabs.</p></div>
+    </div>
+    <span class="badge">Local only</span>
+  </header>
+  <p class="intro">Observations of tabs in normal windows. No browsing content is saved or uploaded.</p>
+
+  <section class="panel overview" aria-labelledby="overview-heading">
+    <div class="section-heading">
+      <div><p class="eyebrow">Your browser, observed</p><h2 id="overview-heading">Last observed counts</h2></div>
+      <div class="actions"><button id="sample" type="button" class="primary">Sample now</button><button id="refresh" type="button">Refresh status</button></div>
+    </div>
+    <p id="sample-time" class="muted">No sample yet.</p>
+    <dl class="metrics">
+      <div><dt>Open tabs</dt><dd id="count-total">—</dd><dd class="metric-note">Including pinned tabs</dd></div>
+      <div><dt>Inactive ≥ 7 days</dt><dd id="count-7">—</dd><dd class="metric-note">Unpinned tabs only</dd></div>
+      <div><dt>Inactive ≥ 30 days</dt><dd id="count-30">—</dd><dd class="metric-note">Also included in the 7-day count</dd></div>
+    </dl>
+    <p id="coverage" class="muted">Inactivity coverage will appear after the first sample.</p>
+    <details><summary>Inspect sample data</summary><pre id="latest">No sample yet.</pre></details>
+  </section>
+  <p id="message" class="feedback" role="status" aria-live="polite"></p>
+
+  <section class="panel" aria-labelledby="settings-heading">
+    <div class="section-heading"><div><p class="eyebrow">Collection preferences</p><h2 id="settings-heading">Sampling &amp; retention</h2></div></div>
+    <form id="settings">
+      <div class="fields">
+        <label class="sampling-field" for="mode">Sampling mode<select id="mode" aria-describedby="sampling-help">
+          <option value="hybrid">Events + periodic sampling (recommended)</option>
+          <option value="events">Events only</option>
+          <option value="polling">Periodic sampling</option>
+        </select></label>
+        <label for="intervalMinutes">Interval <span class="unit">minutes</span><input id="intervalMinutes" type="number" min="1" max="1440" required></label>
+        <label for="retentionDays">Daily retention <span class="unit">calendar days</span><input id="retentionDays" type="number" min="1" max="365" required></label>
+      </div>
+      <p id="sampling-help" class="muted">Events only leaves quiet days unmeasured. Periodic mode still observes tab selection to preserve activity metadata. Daily retention does not apply to snapshot history.</p>
+      <button type="submit">Save settings</button>
+    </form>
+  </section>
+
+  <section class="panel" aria-labelledby="daily-heading">
+    <div class="section-heading"><div><p class="eyebrow">One reading per local date</p><h2 id="daily-heading">Daily observations</h2></div></div>
+    <p class="muted">The last observed counts for each date. Today's reading is provisional. Missing days have no observation.</p>
+    <p id="daily-empty" class="empty-state">Your daily observations will appear here after the first sample.</p>
+    <div id="daily-table-wrap" class="table-wrap" tabindex="0" role="region" aria-label="Daily observations" hidden>
+      <table><thead><tr><th scope="col">Local date</th><th scope="col">Open tabs</th><th scope="col">Inactive ≥ 7d</th><th scope="col">Inactive ≥ 30d</th><th scope="col">Last observed</th></tr></thead><tbody id="daily-rows"></tbody></table>
+    </div>
+    <details><summary>Inspect daily data</summary><pre id="daily"></pre></details>
+  </section>
+
+  <section class="panel" aria-labelledby="storage-heading">
+    <div class="section-heading"><div><p class="eyebrow">On this device</p><h2 id="storage-heading">Storage</h2></div></div>
+    <dl class="storage-grid">
+      <div><dt>Snapshot storage <span>estimated</span></dt><dd id="storage-usage">Checking…</dd></div>
+      <div><dt>Snapshot storage quota <span>estimated</span></dt><dd id="storage-quota">Checking…</dd></div>
+      <div><dt>Daily data &amp; settings <span>logical size</span></dt><dd id="storage-local">Checking…</dd></div>
+    </dl>
+    <p class="muted">Firefox estimates snapshot usage and its limit; space is not reserved or guaranteed. Daily data and settings are measured separately. These figures are not an exact total disk size and may lag recent writes. Updated when this page opens or status is refreshed. Unavailable means Firefox could not report that figure.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="history-heading">
+    <div class="section-heading"><div><p class="eyebrow">Optional detail</p><h2 id="history-heading">Snapshot history <span class="badge preview">Preview</span></h2></div></div>
+    <p>Keep each collected snapshot, including tab UUIDs, timestamps and selection state. Data stays on this device.</p>
+    <p class="muted">Selection means selected in its window, including unfocused windows. Snapshots cannot show every selection between readings.</p>
+    <p class="notice">This preview keeps up to 100,000 records. Automatic condensation and age-based retention are not implemented yet.</p>
+    <form id="history-settings" class="inline-form">
+      <label class="check-label"><input id="history-enabled" type="checkbox"> Keep snapshot history</label>
+      <button type="submit">Save history setting</button>
+    </form>
+    <div class="history-inspector">
+      <button id="history-refresh" type="button">Inspect recent snapshots</button>
+      <p id="history-summary" class="muted" role="status">History has not been inspected.</p>
+      <details><summary>Inspect history status</summary><pre id="history-status">History has not been inspected.</pre></details>
+      <details><summary>Recent snapshot data</summary><pre id="history-recent">Inspect recent snapshots to load data.</pre></details>
+    </div>
+    <div class="delete-area">
+      <h3>Delete snapshot history</h3>
+      <p class="muted">Deletion pauses capture. Existing daily readings and tab identities are kept.</p>
+      <label class="check-label"><input id="history-confirm-delete" type="checkbox"> Confirm deletion of snapshot history</label>
+      <button id="history-delete" type="button" class="danger" disabled>Delete snapshot history</button>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="status-heading">
+    <h2 id="status-heading">Collection status</h2>
+    <p id="collection-summary" role="status">Checking collection status…</p>
+    <details><summary>Inspect status data</summary><pre id="status"></pre></details>
+  </section>
+  <footer>Tab counts and inactivity are neutral observations, not measures of productivity or stress.</footer>
 </main>
+</body>
 </html>

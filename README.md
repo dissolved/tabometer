@@ -9,6 +9,11 @@ A small, local-only Firefox desktop WebExtension that observes tab counts, persi
 3. Click Tabometer in the extensions menu/toolbar to open settings, or use its **Preferences** in `about:addons`.
 4. Inspect the last observed counts, daily observations, and collection status. **Sample now** takes a fresh snapshot; **Refresh status** reads stored data.
 
+The settings page uses the Tabometer icon, follows your light/dark theme, and
+adapts to narrow windows. Count summaries show pinned/unknown-inactivity coverage;
+the daily table shows recorded timezones and labels today's reading provisional.
+Expandable inspectors retain the original JSON for troubleshooting.
+
 Temporary add-ons are removed when Firefox exits. Reloading through `about:debugging` is useful during development. A temporary installation does **not** establish restart persistence: use a locally packaged installation in a Firefox development profile that permits unsigned extensions for restart/restore testing. Do not weaken your everyday profile's signing requirements. Publication and signing are outside this milestone.
 
 ## Sampling

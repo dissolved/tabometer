@@ -133,6 +133,13 @@ export const cases = {
     document.getElementById("refresh").click();
     await eventually(() => document.getElementById("message").textContent === "Done.", "UI refresh");
     assert(JSON.parse(document.getElementById("latest").textContent).total === current.lastSample.total, "UI does not display sample");
+    assert(document.getElementById("count-total").textContent === current.lastSample.total.toLocaleString(), "Summary count differs from sample");
+    assert(document.getElementById("count-7").textContent === current.lastSample.inactive7Days.toLocaleString(), "Seven-day summary differs from sample");
+    assert(document.getElementById("count-30").textContent === current.lastSample.inactive30Days.toLocaleString(), "Thirty-day summary differs from sample");
+    assert(document.querySelectorAll("#daily-rows tr").length === Object.keys(current.daily).length, "Daily table omits readings");
+    assert(document.querySelector("#daily-rows .badge")?.textContent === "Provisional", "Today's reading is not labeled provisional");
+    const icon = document.querySelector(".brand img");
+    assert(icon.complete && icon.naturalWidth === 128, "Page icon failed to load");
     document.getElementById("mode").value = "events";
     document.getElementById("settings").requestSubmit();
     await eventually(async () => (await state()).settings.mode === "events", "UI saves settings");

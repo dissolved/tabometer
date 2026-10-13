@@ -5,6 +5,7 @@
 """Real Firefox checks in an owned disposable profile; run with uv run."""
 
 import argparse
+import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import shutil
@@ -25,6 +26,10 @@ def package(destination):
     # Explicit allowlist: do not package .git, credentials, profiles, or reports.
     with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED) as archive:
         for name in ["manifest.json", "options.html", "options.css"]:
+            archive.write(ROOT / name, name)
+        manifest = json.loads((ROOT / "manifest.json").read_text())
+        icons = set(manifest["icons"].values()) | set(manifest["action"]["default_icon"].values())
+        for name in sorted(icons):
             archive.write(ROOT / name, name)
         for path in sorted((ROOT / "src").glob("*.js")):
             archive.write(path, f"src/{path.name}")

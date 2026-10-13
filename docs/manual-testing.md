@@ -95,3 +95,9 @@ Browser restart with the new history store was **not run**: Developer Edition/Ni
 - The real alarm and browser restart were explicitly skipped for this UI-only change. Firefox 112 fallback behavior was not browser-tested; missing APIs are covered through injected interfaces. No manual presentation/accessibility or physical-disk accounting comparison was performed. Browser estimates are not exact total extension disk usage or reserved capacity.
 
 References: [Mozilla Marionette add-on API](https://firefox-source-docs.mozilla.org/python/marionette_driver.html), [web-ext development tools](https://extensionworkshop.com/documentation/develop/browser-extension-development-tools/), [persistent/restart testing](https://extensionworkshop.com/documentation/develop/testing-persistent-and-restart-features/).
+
+### Settings page design: 2026-10-13
+
+- All 18 unit tests and static checks passed. The Firefox 157.0.1 suite passed with `--skip-alarm` in a disposable profile, including new checks for loaded header artwork, summary counts matching the sample, daily table row coverage, and today's provisional label. Existing settings, history inspection/deletion, storage display, privacy and lifecycle checks passed.
+- Reviewed full-page Firefox screenshots in light and dark themes. A narrow-window capture had no document-level horizontal overflow; the daily table scrolls within its region. These captures used a temporary wrapper around the existing harness, with synthetic disposable-profile observations.
+- Real alarm and browser restart were explicitly skipped. No manual screen-reader, keyboard walkthrough, minimum-version Firefox, or real-account checks were performed. Native controls, semantic headings/table headers, live status messages, visible focus styles, and reduced-motion support are provided, but this is not a full accessibility audit.

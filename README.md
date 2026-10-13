@@ -54,3 +54,7 @@ Exist.io reporting is not implemented. Full history export and a dedicated daily
 - [Development and automated checks](docs/development.md)
 - [Manual test checklist and recorded results](docs/manual-testing.md)
 - [Proposed activity-history work](docs/activity-history-plan.md)
+
+## License
+
+[MIT](LICENSE) © 2026 Ryan Sandridge.

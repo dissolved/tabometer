@@ -1,5 +1,6 @@
 import {DEFAULT_SETTINGS, STATE_KEY} from "./store.js";
 import {historySettings, HISTORY_SETTINGS_KEY} from "./history.js";
+import {storageUsage, formatBytes} from "./storage-usage.js";
 
 const element = id => document.getElementById(id);
 async function refresh() {
@@ -10,6 +11,11 @@ async function refresh() {
   element("daily").textContent = JSON.stringify(state?.daily ?? {}, null, 2);
   element("status").textContent = JSON.stringify(stored.tabometerStatus ?? {error: null}, null, 2);
   element("history-enabled").checked = historySettings(stored[HISTORY_SETTINGS_KEY]).enabled;
+  const usage = await storageUsage(navigator.storage, browser.storage.local);
+  for (const [key, value] of Object.entries(usage)) {
+    element(`storage-${key}`).textContent = formatBytes(value);
+    element(`storage-${key}`).title = value === null ? "Unavailable" : `${value.toLocaleString()} bytes`;
+  }
 }
 async function run(action) {
   try {

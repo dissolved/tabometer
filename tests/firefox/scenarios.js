@@ -104,6 +104,25 @@ export async function verifyRestart(before) {
 }
 
 export const cases = {
+  async "storage estimates displayed above history and refreshed with status"() {
+    document.getElementById("message").textContent = "";
+    document.getElementById("refresh").click();
+    await eventually(() => document.getElementById("message").textContent === "Done.", "storage refresh");
+    const {formatBytes} = await import("../src/storage-usage.js");
+    const estimate = await navigator.storage.estimate();
+    const quota = document.getElementById("storage-quota");
+    assert(Number.isFinite(estimate.quota) && estimate.quota > 0, "No usable native quota estimate");
+    assert(quota.textContent === formatBytes(estimate.quota), "Quota not displayed from native API");
+    for (const id of ["storage-usage", "storage-local"]) {
+      const item = document.getElementById(id);
+      assert(item.textContent !== "Checking…" && item.textContent !== "Unavailable", "Missing storage measurement: " + id);
+      assert(item.title.endsWith(" bytes"), "Exact reported bytes missing: " + id);
+    }
+    const localSize = await browser.storage.local.getBytesInUse(null);
+    assert(localSize > 0, "Missing local daily data/settings size");
+    const position = document.getElementById("storage-usage").compareDocumentPosition(document.getElementById("history-settings"));
+    assert(position & Node.DOCUMENT_POSITION_FOLLOWING, "Storage appears below history");
+  },
   async "fresh installation and options UI"() {
     const current = await sample();
     assert(current.version === 1 && current.deviceId.length === 36, "Missing installation identity");

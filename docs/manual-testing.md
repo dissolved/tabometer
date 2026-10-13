@@ -88,4 +88,10 @@ During harness development, a settings poll initially dereferenced a not-yet-wri
 
 Browser restart with the new history store was **not run**: Developer Edition/Nightly was unavailable. The optional `--restart` scenario now includes history preference/record preservation, ready for a compatible installation. OS sleep/wake, manual idle/lock behavior, visual/accessibility review, minimum Firefox 112, large-history performance, and disk-quota exhaustion remain unverified. Cap and transaction-abort tests do not establish physical disk-quota or power-loss behavior. No Exist requests were made. Idle detection is not implemented in this slice.
 
+### Storage usage display: 2026-10-12
+
+- All 18 unit tests and static checks passed on Node 24.21.0. Added coverage verifies that origin usage/quota remain separate from local logical bytes, zero usage is valid, and missing/rejected/invalid API readings show unavailable independently.
+- Firefox 157.0.1 disposable-profile suite passed with `--skip-alarm`, including the new UI check against native `navigator.storage.estimate()` and `storage.local.getBytesInUse(null)`, placement above snapshot history, refreshed display, existing history/lifecycle checks, and no extension HTTP(S) requests.
+- The real alarm and browser restart were explicitly skipped for this UI-only change. Firefox 112 fallback behavior was not browser-tested; missing APIs are covered through injected interfaces. No manual presentation/accessibility or physical-disk accounting comparison was performed. Browser estimates are not exact total extension disk usage or reserved capacity.
+
 References: [Mozilla Marionette add-on API](https://firefox-source-docs.mozilla.org/python/marionette_driver.html), [web-ext development tools](https://extensionworkshop.com/documentation/develop/browser-extension-development-tools/), [persistent/restart testing](https://extensionworkshop.com/documentation/develop/testing-persistent-and-restart-features/).

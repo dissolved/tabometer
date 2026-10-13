@@ -1,4 +1,4 @@
-# Manual Firefox test results
+# Manual Firefox checks and test results
 
 Guided walkthrough on 2026-10-11. Results in the first section were reported by the user in their temporarily installed Firefox extension; Firefox version was not recorded. Subsequent automated runs use separate disposable profiles and are recorded separately below.
 
@@ -44,7 +44,7 @@ Browser restart is automated with `--restart`; default temporary-install runs sk
 
 ## Automated Firefox coverage
 
-Run `uv run scripts/firefox-checks.py` or `npm run test:firefox`; see [setup and flags](../README.md#automated-firefox-checks). The runner uses Marionette, a disposable profile, local fixture pages, and the unchanged production manifest/source plus test-only fixtures. It needs no real accounts or browsing data. Python tooling is a development dependency only.
+Run `uv run scripts/firefox-checks.py` or `npm run test:firefox`; see [setup and flags](development.md#automated-firefox-checks). The runner uses Marionette, a disposable profile, local fixture pages, and the unchanged production manifest/source plus test-only fixtures. It needs no real accounts or browsing data. Python tooling is a development dependency only.
 
 Assertions cover:
 
@@ -101,3 +101,20 @@ References: [Mozilla Marionette add-on API](https://firefox-source-docs.mozilla.
 - All 18 unit tests and static checks passed. The Firefox 157.0.1 suite passed with `--skip-alarm` in a disposable profile, including new checks for loaded header artwork, summary counts matching the sample, daily table row coverage, and today's provisional label. Existing settings, history inspection/deletion, storage display, privacy and lifecycle checks passed.
 - Reviewed full-page Firefox screenshots in light and dark themes. A narrow-window capture had no document-level horizontal overflow; the daily table scrolls within its region. These captures used a temporary wrapper around the existing harness, with synthetic disposable-profile observations.
 - Real alarm and browser restart were explicitly skipped. No manual screen-reader, keyboard walkthrough, minimum-version Firefox, or real-account checks were performed. Native controls, semantic headings/table headers, live status messages, visible focus styles, and reduced-motion support are provided, but this is not a full accessibility audit.
+
+## Manual Firefox acceptance checklist
+
+Progress and deferred checks are recorded in the [run log](#automated-run-log) and [remaining manual checks](#remaining-manual-checks). Guided walkthrough results were reported by the user; a separate section records automated browser runs.
+
+1. Temporarily install; check `about:debugging` for manifest errors. Inspect the background context, check the console and storage, open settings, and verify its initial sample and device UUID. Confirm permissions contain no website/tab-content access and private browsing is unavailable.
+2. Open two normal windows and a private window. Compare counts, including pinned, hidden (if available), and discarded tabs. Confirm private/popup windows are excluded. The options tab itself counts.
+3. Create, close, restore, duplicate, move, select, pin/unpin, discard, and reload tabs. Confirm daily aggregates update, no duplicates remain, page loads do not reset inactivity, and selection updates `lastAccessedAt`. Inspect `browser.sessions.getTabValue(tabId, "tabometer.identity.v1")` for a known normal tab before/after close/restore.
+
+   Use a loaded, nonblank test page such as `https://example.com/` for close/restore testing. When creating the test tab through `browser.tabs.create()`, use an ordinary HTTPS URL: Firefox rejects privileged internal pages ([tabs.create restrictions](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/tabs/create)). Firefox can omit empty `about:blank`, home, and new-tab pages from its closed-tab restore list ([SessionStore implementation](https://github.com/mozilla-firefox/firefox/blob/main/browser/components/sessionstore/SessionStore.sys.mjs)). Calling `browser.sessions.restore()` without a session ID can then restore an unrelated previously closed tab, making identity comparisons invalid. Confirm the intended page was restored; preferably obtain its entry using `browser.sessions.getRecentlyClosed()` and pass that entry's `tab.sessionId` explicitly to `restore()`.
+
+4. In a disposable development profile with a restart-capable installation, enable previous-session restoration, restart Firefox, and compare UUIDs/first-observed times and `lastAccessed` with saved session metadata. Also test an idle background page unloading and waking. Temporary reload alone does not prove restart persistence.
+5. Try all sampling modes. Use a one-minute interval for testing. Leave Firefox quiet, sleep/wake the computer, and close/reopen the browser. Confirm missing periods never become zero/catch-up days; events-only quiet periods remain unsampled. Restore the desired interval.
+6. Inspect daily dates and UTC offsets around local midnight, timezone changes, and DST (pure tests cover these without changing your machine clock). Confirm current-day readings replace earlier values and retention prunes old dates on sampling.
+7. In a disposable profile, introduce an unsupported stored schema and confirm collection reports failure without replacing it; restore backed-up data and retry. Verify outgoing extension traffic is absent and stored data excludes browsing fields.
+
+Most repeatable steps above now also have automated browser checks. OS sleep/wake remains explicitly deferred; see the results log for exact verification scope. No Exist API is involved in this milestone.

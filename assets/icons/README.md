@@ -1,27 +1,21 @@
 # Tabometer icons
 
-`tabometer-source.png` is the original user-supplied artwork, moved from the
-repository root without alteration. Its background is already transparent.
-The runtime PNGs trim excess transparent space, center the artwork on a square
-with roughly 3% padding on each side, and downsample with Lanczos filtering.
+The design combines stacked browser tabs with a gauge: mint-green tab headers
+and needle, a dark navy body, and a white gauge arc and tick marks. The PNGs have
+transparent backgrounds. The imagery represents tab accumulation and measurement,
+without assigning meaning to a tab count.
+
+The replacement artwork and size variants were generated outside this repository
+and supplied by the user:
+
+- `tabometer-source.png`: 600 × 600 source artwork.
+- `tabometer-{16,32,48,64,96,128}.png`: square runtime icons referenced by
+  `manifest.json`. The toolbar action references the 16px and 32px versions.
+- `tabometer-{256,512,1024}.png`: larger square versions retained for reuse.
+
 The same design is used at every size; the smallest sizes necessarily lose detail.
-
-Firefox uses the 16/32px icons for the toolbar and the larger sizes for other
-extension surfaces, including high-density displays. See MDN's
-[icons](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/icons)
-and [action](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/action)
-references. No extension permissions are needed for packaged icons.
-
-To regenerate with ImageMagick 7, run from the repository root:
-
-```sh
-for size in 16 32 48 64 96 128; do
-  magick assets/icons/tabometer-source.png -trim +repage \
-    -gravity center -background none -extent 1072x1072 \
-    -filter Lanczos -resize "${size}x${size}" -strip \
-    "assets/icons/tabometer-${size}.png"
-done
-```
+The external generation process is not recorded here, so these supplied PNGs are
+the maintained assets.
 
 The Firefox test packager includes only the icon files referenced by the manifest,
-excluding this document and the full-size source artwork.
+excluding this document, the source artwork, and the 256px, 512px, and 1024px versions.
